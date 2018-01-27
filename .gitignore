@@ -1,0 +1,2 @@
+git rm --cached EPSOM\bin
+git rm --cached EPSOM\.settings
