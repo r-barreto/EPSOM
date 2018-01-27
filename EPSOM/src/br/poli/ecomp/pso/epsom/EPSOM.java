@@ -309,21 +309,39 @@ public class EPSOM extends PSO {
 				
 				//double p = ns[selected_k][iteration] / (ns[selected_k][iteration] + nf[selected_k][iteration]);
 				
-				wg[iteration] = 1.0 + ((double) ns[selected_k][iteration] * iteration / (double) numIteration);
+				if (iteration > M0) {
+                    if (M < iteration - 1 - M0) {
+                        wg[iteration] = 1;
+                    } else {
+                        wg[iteration] = (iteration - 1 - M0) / M;
+                    }
+                }
 				
 				//System.out.println("Wg: " + wg[iteration]);
 				
 				if (iteration > LP) {
-					
-					for (int i = 0; i < k; i++) {
-						double somaSucesso = 0;
-						double somaFalha = 0;
-						for (int j = iteration - LP; j <= iteration; j++) {
-							somaSucesso += ns[i][j] * wg[j];
-							somaFalha += nf[i][j] * wg[j];
+					if (iteration < M0 + M) {
+						for (int i = 0; i < k; i++) {
+							double somaSucesso = 0;
+							double somaFalha = 0;
+							for (int j = iteration - LP; j <= iteration; j++) {
+								somaSucesso += ns[i][j] * wg[j];
+								somaFalha += nf[i][j] * wg[j];
+							}
+							
+							sk[i] = (((double) somaSucesso)/(somaSucesso + somaFalha));
 						}
-
-						sk[i] = (((double) somaSucesso)/(somaSucesso + somaFalha));
+					} else {
+						for (int i = 0; i < k; i++) {
+                            double somaSucesso = 0;
+                            double somaFalha = 0;
+                            for (int j = iteration - LP; j < iteration; j++) {
+                                somaSucesso += ns[i][j] * wg[j];
+                                somaFalha += ns[i][j] * wg[j];
+                            }
+ 
+                            sk[i] = (somaSucesso/(somaSucesso + somaFalha)) + 0.01;
+                        }
 					}
 					
 					double somaSk = 0.001;
@@ -336,7 +354,7 @@ public class EPSOM extends PSO {
 						pk[i] = sk[i] / somaSk;
 					}
 					
-				}
+				} 
 
 				if (iteration % 100 == 0 || iteration == numIteration - 1) {
 					fw.write(function.name() + ";" + (simulation + 1) + ";" + (iteration + 1) + ";" + ParticleCLPSO.gBestFitness + "\n");
