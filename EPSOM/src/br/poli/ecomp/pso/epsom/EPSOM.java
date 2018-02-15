@@ -3,8 +3,16 @@ package br.poli.ecomp.pso.epsom;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.DoubleSummaryStatistics;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
 import java.util.Random;
+import java.util.Set;
+import java.util.TreeMap;
 
 import org.apache.commons.math3.stat.descriptive.moment.StandardDeviation;
 
@@ -21,11 +29,11 @@ import br.poli.ecomp.pso.particle.Particle;
 import br.poli.ecomp.pso.wpso.ParticleWPSO;
 
 public class EPSOM extends PSO {
-	
+
 	private int LP = 300;
 	//private int M0 = 400;
 	//private int M = 0;
-	
+
 	public static void main(String[] args) throws IOException {
 
 		numParticles = 30;
@@ -38,14 +46,14 @@ public class EPSOM extends PSO {
 		//FileWriter fw = null;
 
 		for (int simulation = 0; simulation < numSimulation; simulation ++) {
-			
+
 			File file;
 			FileWriter fw = null;
-			
+
 			file = new File("EPSO" + "_" + function.name() + "_" + "simulation_" + (simulation + 1) + ".txt");
 			fw = new FileWriter(file);
 			fw.write("function;simulation;iteration;best_fitness\n");
-			
+
 			int LP = 300;
 			int k = 5;
 			double[] pk = new double[k];
@@ -71,7 +79,7 @@ public class EPSOM extends PSO {
 				Particle.particles[i] = new ParticleWPSO(numDimension, function, i);
 				Particle.particles[i].calcularFitness(function);
 			}
-			
+
 			for (int i = 0; i < getNumParticles(); i++) {				
 				if (Particle.particles[i].getBestFitness() < Particle.gBestFitness) {
 					Particle.gBestFitness = Particle.particles[i].getBestFitness();
@@ -129,7 +137,7 @@ public class EPSOM extends PSO {
 						double somaFalha = 0;
 						for (int j = iteration - LP; j < iteration; j++) {
 							somaSucesso += ns[i][j];
-							somaFalha += ns[i][j];
+							somaFalha += nf[i][j];
 						}
 
 						sk[i] = (somaSucesso/(somaSucesso + somaFalha)) + 0.01;
@@ -194,35 +202,86 @@ public class EPSOM extends PSO {
 		return k - 1;
 	}
 
+	private static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(Map<K, V> map) {
+		List<Map.Entry<K, V>> list = new LinkedList<Map.Entry<K, V>>(map.entrySet());
+		Collections.sort( list, new Comparator<Map.Entry<K, V>>() {
+			public int compare(Map.Entry<K, V> o1, Map.Entry<K, V> o2) {
+				return (o1.getValue()).compareTo( o2.getValue() );
+			}
+		});
+
+		Map<K, V> result = new LinkedHashMap<K, V>();
+		for (Map.Entry<K, V> entry : list) {
+			result.put(entry.getKey(), entry.getValue());
+		}
+		return result;
+	}
+
+	private static Set<Integer> calculateX (int k, int iteration) {
+		Particle[][] particulasClone = new Particle[k][k];
+		double[][] bestFitness = new double[k][getNumParticles()];
+		double[][] newFitness = new double[k][getNumParticles()];
+
+		for (int i = 0; i < k; i++) {
+			particulasClone[i] = (Particle[]) Particle.particles.clone();
+			particulasClone[i] = Particle.changeParticlesType(particulasClone[i], PSOType.values()[i]);
+			for (int j = 0; j < getNumParticles(); j++) {
+				bestFitness[i][j] = particulasClone[i][j].getBestFitness();
+			}
+		}
+
+		for (int i = 0; i < k; i++) {
+			for (int j = 0; j < getNumParticles(); j++) {
+				try {
+					particulasClone[i][j].updateVelocity(iteration);
+				} catch (Exception e) {
+					e.printStackTrace();
+				}
+				newFitness[i][j] = particulasClone[i][j].calcularFitness(function);
+			}
+		}
+
+		TreeMap<Integer, Double> diff = new TreeMap<Integer, Double> ();
+
+		for (int i = 0; i < k; i++) {
+			diff.put(i, 0D);
+			for (int j = 0; j < getNumParticles(); j++) {
+				diff.put(i, diff.get(i) + bestFitness[i][j] - newFitness[i][j]);
+			}
+		}
+
+		return sortByValue(diff).keySet();
+	}
+
 	@Override
 	public PSOResult call(int numParticles, int numIteration, int numDimension, int numSimulation,
 			FunctionEnum function) throws Exception {
-	
+
 		PSO.numParticles = numParticles;
 		PSO.numIteration = numIteration;
 		PSO.numDimension = numDimension;
 		PSO.numSimulation = numSimulation;
 		PSO.function = function;
-		
+
 		PSOResult result = new PSOResult ();
 		result.pso = "EPSOM";
-		
+
 		StandardDeviation std_variation = new StandardDeviation();
 		double[] std_variation_values = new double[numSimulation];
 		DoubleSummaryStatistics average = new DoubleSummaryStatistics();
-		
+
 		//File file;
 		//FileWriter fw = null;
 
 		for (int simulation = 0; simulation < numSimulation; simulation ++) {
-				
+
 			File file;
 			FileWriter fw = null;
-			
+
 			file = new File("EPSOM" + "_" + function.name() + "_" + "simulation_" + (simulation + 1) + ".txt");
 			fw = new FileWriter(file);
 			fw.write("function;simulation;iteration;best_fitness\n");
-			
+
 			int k = 5;
 			double[] pk = new double[k];
 			PSOType selectedPSO;
@@ -230,7 +289,7 @@ public class EPSOM extends PSO {
 			double[][] nf = new double[k][numIteration];
 			double[] sk = new double[k];
 			double[] wg = new double[numIteration];
-			
+
 			for (int i = 0; i < pk.length; i++) {
 				pk[i] = 1.0/k;
 			}
@@ -252,7 +311,7 @@ public class EPSOM extends PSO {
 				Particle.particles[i] = new ParticleWPSO(numDimension, function, i);
 				Particle.particles[i].calcularFitness(function);
 			}
-			
+
 			for (int i = 0; i < getNumParticles(); i++) {				
 				if (Particle.particles[i].getBestFitness() < Particle.gBestFitness) {
 					Particle.gBestFitness = Particle.particles[i].getBestFitness();
@@ -269,6 +328,18 @@ public class EPSOM extends PSO {
 				}
 
 				//Escolhe o algoritmo da vez
+				if (iteration % 100 == 0 && iteration >= LP) {
+					Integer[] bestOrder = calculateX(k, iteration).toArray(new Integer[0]);
+					
+					double[] pk_clone = pk.clone();
+					for (int i = 0;i < bestOrder.length; i++) {
+						double previus_pk = pk_clone[i];
+						double new_pk = pk_clone[bestOrder[0]];
+						pk[i] = new_pk;
+						pk[bestOrder[0]] = previus_pk;
+					}
+				}
+				
 				int selected_k = rouletteWheel(k, pk);
 				selectedPSO = PSOType.values()[selected_k];
 
@@ -306,44 +377,26 @@ public class EPSOM extends PSO {
 						nf[selected_k][iteration] += 1;
 					}
 				}
-				
+
 				//double p = ns[selected_k][iteration] / (ns[selected_k][iteration] + nf[selected_k][iteration]);
-				
-				if (iteration > M0) {
-                    if (M < iteration - 1 - M0) {
-                        wg[iteration] = 1;
-                    } else {
-                        wg[iteration] = (iteration - 1 - M0) / M;
-                    }
-                }
-				
+
+				wg[iteration] = 1.0 + ((double) ns[selected_k][iteration] * iteration / (double) numIteration);
+
 				//System.out.println("Wg: " + wg[iteration]);
-				
+
 				if (iteration > LP) {
-					if (iteration < M0 + M) {
-						for (int i = 0; i < k; i++) {
-							double somaSucesso = 0;
-							double somaFalha = 0;
-							for (int j = iteration - LP; j <= iteration; j++) {
-								somaSucesso += ns[i][j] * wg[j];
-								somaFalha += nf[i][j] * wg[j];
-							}
-							
-							sk[i] = (((double) somaSucesso)/(somaSucesso + somaFalha));
+
+					for (int i = 0; i < k; i++) {
+						double somaSucesso = 0;
+						double somaFalha = 0;
+						for (int j = iteration - LP; j <= iteration; j++) {
+							somaSucesso += ns[i][j] * wg[j];
+							somaFalha += nf[i][j] * 2 * wg[j];
 						}
-					} else {
-						for (int i = 0; i < k; i++) {
-                            double somaSucesso = 0;
-                            double somaFalha = 0;
-                            for (int j = iteration - LP; j < iteration; j++) {
-                                somaSucesso += ns[i][j] * wg[j];
-                                somaFalha += ns[i][j] * wg[j];
-                            }
- 
-                            sk[i] = (somaSucesso/(somaSucesso + somaFalha)) + 0.01;
-                        }
+
+						sk[i] = (((double) somaSucesso)/(somaSucesso + somaFalha));
 					}
-					
+
 					double somaSk = 0.001;
 
 					for (int i = 0; i < k; i++) {
@@ -353,32 +406,31 @@ public class EPSOM extends PSO {
 					for (int i = 0; i < k; i++) {
 						pk[i] = sk[i] / somaSk;
 					}
-					
-				} 
+
+				}
 
 				if (iteration % 100 == 0 || iteration == numIteration - 1) {
 					fw.write(function.name() + ";" + (simulation + 1) + ";" + (iteration + 1) + ";" + ParticleCLPSO.gBestFitness + "\n");
 				}
-				
-				fw.close();
+
 			}//Fim iteraçoes
-			//fw.close();
-			
+			fw.close();
+
 			double diff = Particle.gBestFitness - Function.getFunctionBias();
-			
+
 			if (diff < result.best) {
 				result.best = diff;
 			}
-			
+
 			std_variation_values[simulation] = diff;
 			average.accept(diff);
-			
+
 		}//Fim simulações
 
 		result.average = average.getAverage();
 		result.std_variation = std_variation.evaluate(std_variation_values, result.average);		
-		
+
 		return result;
 	}
-	
+
 }
