@@ -14,7 +14,7 @@ public abstract class Particle implements Cloneable {
 
 	protected double x_max, x_min, v_max, v_min;
 	protected static double multiply_vmin = 1E-10;
-	protected static double multiply_vmax = (1.0/100.0);
+	protected static double multiply_vmax = (1.0/1.0);
 
 	public static Particle gBestParticle;
 	public static double gBestFitness;
@@ -92,7 +92,7 @@ public abstract class Particle implements Cloneable {
 		}
 	}
 
-	public void calcularFitness (FunctionEnum function) {
+	public double calcularFitness (FunctionEnum function) {
 		
 		try {
 			Function.calculateFunction(function, this);
@@ -104,6 +104,8 @@ public abstract class Particle implements Cloneable {
 			this.bestFitness = this.fitness;
 			this.pBestPosition = this.position.clone();
 		}
+		
+		return this.fitness;
 	}
 
 	public static void changeParticlesType (PSOType type) {
@@ -148,7 +150,52 @@ public abstract class Particle implements Cloneable {
 			}
 		}
 	}
+	
+	public static Particle[] changeParticlesType (Particle[] particles, PSOType type) {
 
+		Particle[] cloneParticles = particles;
+
+		if (type == PSOType.WPSO) {
+			particles = new ParticleWPSO[PSO.getNumParticles()];
+		} else if (type == PSOType.FDR_PSO) {
+			particles = new ParticleFDRPSO[PSO.getNumParticles()];
+		} else if (type == PSOType.HPSO_TVAC) {
+			particles = new ParticleHSPSOTVAC[PSO.getNumParticles()];
+		} else if (type == PSOType.LIPS) {
+			particles = new ParticleLIPS[PSO.getNumParticles()];
+		} else if (type == PSOType.CLPSO) {
+			particles = new ParticleCLPSO[PSO.getNumParticles()];
+		}
+
+		for (int i = 0; i < cloneParticles.length; i++) {
+			Particle particle = cloneParticles[i];
+
+			if (type == PSOType.WPSO) {
+				ParticleWPSO p = new ParticleWPSO();
+				p.copyOf(particle);
+				particles[i] = p;
+			} else if (type == PSOType.FDR_PSO) {
+				ParticleFDRPSO p = new ParticleFDRPSO();
+				p.copyOf(particle);
+				particles[i] = p;
+			} else if (type == PSOType.HPSO_TVAC) {
+				ParticleHSPSOTVAC p = new ParticleHSPSOTVAC();
+				p.copyOf(particle);
+				particles[i] = p;
+			} else if (type == PSOType.LIPS) {
+				ParticleLIPS p = new ParticleLIPS();
+				p.copyOf(particle);
+				particles[i] = p;
+			} else if (type == PSOType.CLPSO) {
+				ParticleCLPSO p = new ParticleCLPSO(PSO.getNumDimension(), PSO.getFunction(), (i + 1));
+				p.copyOf(particle);
+				particles[i] = p;				 
+			}
+		}
+		
+		return particles;
+	}
+	
 	public void copyOf(Particle particle) {
 		this.position = particle.position.clone();
 		this.velocity = particle.velocity.clone();
